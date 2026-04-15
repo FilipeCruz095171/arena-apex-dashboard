@@ -1000,7 +1000,7 @@ if st.session_state.dados_extraidos:
             df_cronologia = df_pid[["tournamentDate", "tournamentFullName", "playerName", "kills", "damageDealt"]].copy()
             df_cronologia = df_cronologia.sort_values(by="tournamentDate", ascending=False)
             df_cronologia["tournamentDate"] = df_cronologia["tournamentDate"].dt.strftime("%d/%m/%Y")
-            df_cronologia.columns = ["Data", "Competição", "Nickname Utilizado", "Kills Obtenidas", "Dano Causado"]
+            df_cronologia.columns = ["Data", "Competição", "Nickname Utilizado", "Kills Obtidas", "Dano Causado"]
             
             st.dataframe(df_cronologia, use_container_width=True)
             
