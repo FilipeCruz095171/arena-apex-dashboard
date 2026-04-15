@@ -511,7 +511,7 @@ if st.session_state.dados_extraidos:
             "A métrica APS não se engana com sorte passageira. Ela trabalha em duas fases rigorosas para classificar o lobby:\n\n"
             "* **1️⃣ Fase 1 (Poder Bruto):** Primeiro calcula-se quão letal o jogador foi na média das vezes que pisou no mapa. Cada "
             "Kill vale 12pts, Assistência 8pts, e cada 100 de Dano vale 1pt.\n"
-            "* **2️⃣ Fase 2 (A Guilhotina da Consistência):** Se o jogador participou de quase todas as partidas do mês, o sistema "
+            "* **2️⃣ Fase 2 (A Guilhotina da Consistência):** Se o jogador participou de quase todas as partidas do recorte analisado, o sistema "
             "*preserva a maior parte* (85~100%) da nota de poder bruto dele. Mas, se ele jogou pouco (um \"turista\"), a matemática "
             "(através de uma curva Logarítmica) corta a pontuação cruelmente, caindo para menos da metade!\n\n"
             "**🎯 Resumo Prático:** Alguém que mata 6 jogadores em uma única partida e vai embora, não rouba o Top 1 de quem "
