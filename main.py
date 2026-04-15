@@ -436,10 +436,11 @@ if tournaments_data:
 if st.session_state.dados_extraidos:
     df = st.session_state.df_players
 
-    aba1, aba2, aba3 = st.tabs([
+    aba1, aba2, aba3, aba4 = st.tabs([
         "📊 Ranking Consolidado",
         "📈 Analítico por Jogador",
-        "🏁 Placar da Etapa (Lobby)"
+        "🏁 Placar da Etapa (Lobby)",
+        "🕵️‍♂️ CSI Arena"
     ])
 
     # --- CONTEÚDO DA ABA 1 ---
@@ -949,3 +950,59 @@ if st.session_state.dados_extraidos:
                         else:
                             st.info("Dados individuais não disponíveis para esta etapa.")
 
+    # --- CONTEÚDO DA ABA 4 (CSI ARENA) ---
+    with aba4:
+        st.subheader("🕵️‍♂️ CSI Arena: Investigação de Contas (Anti-Smurf)")
+        st.markdown("Esta seção agrupa todas as métricas detalhadas de um único Player ID para expor saltos de performance entre múltiplos nicknames da mesma pessoa.")
+        
+        # Lista iterável de IDs com seu nick mais recente
+        df_sorted_csi = df.sort_values(by="tournamentDate", ascending=True)
+        # Mapeia ID -> Último Nick
+        id_to_nick = df_sorted_csi.groupby("playerId")["playerName"].last().to_dict()
+        opcoes_csi = [f"{pid} ({nick})" for pid, nick in id_to_nick.items()]
+        # Ordena a UI alfabeticamente pelo primeiro caractere do nick
+        opcoes_csi.sort(key=lambda x: str(x.split("(")[1]).lower() if "(" in x else "")
+        
+        id_selecionado_raw = st.selectbox("Selecione a conta para investigar as ocorrências:", opcoes_csi)
+        
+        if id_selecionado_raw:
+            pid = id_selecionado_raw.split(" (")[0]
+            nick_principal = id_to_nick[pid]
+            df_pid = df_sorted_csi[df_sorted_csi["playerId"] == pid]
+            
+            nicks_usados = df_pid["playerName"].unique()
+            
+            st.markdown(f"### Dossiê Investigativo: `{pid}`")
+            col_id1, col_id2 = st.columns(2)
+            col_id1.metric("Nickname Reconhecido (Último)", nick_principal)
+            col_id2.metric("Volume Falso (Nomes Únicos)", len(nicks_usados))
+            
+            st.markdown("#### 🃏 Disparidade de Performance (Por Identidade)")
+            st.write("Verifique se as estatísticas abaixo flutuam massivamente quando a pessoa troca de nome:")
+            # Agrupar dados POR NOME DE JOGADOR dentro do ID
+            df_csi_nicks = df_pid.groupby("playerName").agg({
+                "tournamentFullName": "nunique",
+                "gamesPlayed": "sum",
+                "kills": "sum",
+                "damageDealt": "sum"
+            }).reset_index()
+            
+            df_csi_nicks.columns = ["Nickname Utilizado", "Etapas Disputadas", "Partidas", "Kills Totais", "Dano Total"]
+            df_csi_nicks["Kills / P"] = (df_csi_nicks["Kills Totais"] / df_csi_nicks["Partidas"]).round(2)
+            df_csi_nicks["Dano / P"] = (df_csi_nicks["Dano Total"] / df_csi_nicks["Partidas"]).round(0)
+            
+            st.dataframe(
+                df_csi_nicks.style.background_gradient(subset=["Kills / P", "Dano / P"], cmap="Reds"),
+                use_container_width=True
+            )
+            
+            st.markdown("#### 📅 Ficha Corrida (Cronologia)")
+            df_cronologia = df_pid[["tournamentDate", "tournamentFullName", "playerName", "kills", "damageDealt"]].copy()
+            df_cronologia = df_cronologia.sort_values(by="tournamentDate", ascending=False)
+            df_cronologia["tournamentDate"] = df_cronologia["tournamentDate"].dt.strftime("%d/%m/%Y")
+            df_cronologia.columns = ["Data", "Competição", "Nickname Utilizado", "Kills Obtenidas", "Dano Causado"]
+            
+            st.dataframe(df_cronologia, use_container_width=True)
+            
+            if len(nicks_usados) > 1:
+                st.warning("⚠️ **ALERTA CSI:** Esta conta já entrou nos lobbies disfarçada sob nomes falsos distintos. Verifique a tabela de disparidade para detectar indícios de adulteração de skill!")
