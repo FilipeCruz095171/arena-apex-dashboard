@@ -436,10 +436,10 @@ if tournaments_data:
 
     # Carregando a Imagem Assinatura do Autor
     derby_html = ""
-    if os.path.exists("derby.png"):
-        with open("derby.png", "rb") as f:
+    if os.path.exists("derby.jpg"):
+        with open("derby.jpg", "rb") as f:
             derby_b64 = base64.b64encode(f.read()).decode()
-        derby_html = f"<img src='data:image/png;base64,{derby_b64}' style='width: 80px; height: 80px; object-fit: cover; border-radius: 50%; border: 2px solid #E31B23; box-shadow: 0px 4px 10px rgba(227, 27, 35, 0.4); margin-bottom: 10px;'><br>"
+        derby_html = f"<img src='data:image/jpeg;base64,{derby_b64}' style='width: 80px; height: 80px; object-fit: cover; border-radius: 50%; border: 2px solid #E31B23; box-shadow: 0px 4px 10px rgba(227, 27, 35, 0.4); margin-bottom: 10px;'><br>"
 
     st.sidebar.markdown(
         f"<div style='text-align: center; color: #666666; font-size: 13px; margin-top: 50px; border-top: 1px solid #4A171C; padding-top: 25px; font-family: Montserrat, sans-serif;'>"
