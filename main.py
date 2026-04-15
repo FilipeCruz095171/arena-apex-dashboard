@@ -168,7 +168,9 @@ import base64
 import os
 
 def render_header():
-    logo_path = "logo.png"
+    # Streamlit Cloud é Linux (Sensível a letras maiúsculas/minúsculas)
+    logo_path = "LOGO.png" if os.path.exists("LOGO.png") else "logo.png"
+    
     if os.path.exists(logo_path):
         with open(logo_path, "rb") as f:
             encoded_string = base64.b64encode(f.read()).decode()
