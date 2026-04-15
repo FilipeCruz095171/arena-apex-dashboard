@@ -447,7 +447,9 @@ if st.session_state.dados_extraidos:
         st.subheader("🏆 Ranking Consolidado: Rating de Performance")
         import math
         
-        df_grouped = df.groupby("playerId").agg({
+        # Garante a ordenação cronológica para que o 'last' pegue o nick mais recente
+        df_sorted = df.sort_values(by="tournamentDate", ascending=True)
+        df_grouped = df_sorted.groupby("playerId").agg({
             "playerName": "last", "kills": "sum", "assists": "sum",
             "damageDealt": "sum", "gamesPlayed": "sum"
         }).reset_index()
@@ -478,8 +480,8 @@ if st.session_state.dados_extraidos:
         df_grouped = df_grouped.sort_values(by="APS", ascending=False).reset_index(drop=True)
         df_grouped.index = df_grouped.index + 1 # Rank 1-based
         
-        df_final = df_grouped[["playerName", "kills", "assists", "damageDealt", "gamesPlayed", "KPR", "APR", "DPR", "APS"]]
-        df_final.columns = ["Nick Atual", "Kills", "Assists", "Dano", "Partidas", "Kills/P", "Assists/P", "Dano/P", "Rating APS"]
+        df_final = df_grouped[["playerId", "playerName", "kills", "assists", "damageDealt", "gamesPlayed", "KPR", "APR", "DPR", "APS"]]
+        df_final.columns = ["ID da Conta", "Nick Atual", "Kills", "Assists", "Dano", "Partidas", "Kills/P", "Assists/P", "Dano/P", "Rating APS"]
 
         st.info(
             "📍 **Como o APS (Apex Performance Score) é calculado?**\n\n"
