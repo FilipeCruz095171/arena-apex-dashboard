@@ -1,0 +1,22 @@
+# Variáveis de ambiente secretas (Tokens e Cookies não devem ir para o Github)
+.env
+
+# Cache do Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Arquivos temporários / OS
+.DS_Store
+
+# Virtual Environments (caso use localmente)
+venv/
+env/
+.venv/
+
+# Arquivos de log e testes locais
+pagina_torneio.html
+check_ids.py
+test_stable.py
+diagnostico_api.py
