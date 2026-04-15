@@ -457,6 +457,10 @@ if st.session_state.dados_extraidos:
         df_grouped = df_grouped[df_grouped["gamesPlayed"] > 0]
         max_games = df_grouped["gamesPlayed"].max() if not df_grouped.empty else 1
         
+        # Captura todos os nicks únicos já vinculados a este ID e mapeia
+        nicks_historicos = df_sorted.groupby("playerId")["playerName"].unique().apply(lambda x: ", ".join(x))
+        df_grouped["Nicks_Anteriores"] = df_grouped["playerId"].map(nicks_historicos)
+        
         # Cálculo das médias por partida
         df_grouped["KPR"] = df_grouped["kills"] / df_grouped["gamesPlayed"]
         df_grouped["APR"] = df_grouped["assists"] / df_grouped["gamesPlayed"]
@@ -467,8 +471,6 @@ if st.session_state.dados_extraidos:
         df_grouped["Poder_Base"] = (df_grouped["KPR"] * 12) + (df_grouped["APR"] * 8) + (df_grouped["DPR"] / 100)
         
         # 2. Fator de Consistência: Penaliza jogadores com poucas partidas
-        # Ex: Manter média alta por 18 partidas é MUITO mais difícil que por 4 partidas.
-        # Usa escala logarítmica para uma curva suave de peso.
         df_grouped["Fator_Consistencia"] = df_grouped["gamesPlayed"].apply(
             lambda x: math.log2(x + 1) / math.log2(max_games + 1)
         )
@@ -480,8 +482,8 @@ if st.session_state.dados_extraidos:
         df_grouped = df_grouped.sort_values(by="APS", ascending=False).reset_index(drop=True)
         df_grouped.index = df_grouped.index + 1 # Rank 1-based
         
-        df_final = df_grouped[["playerId", "playerName", "kills", "assists", "damageDealt", "gamesPlayed", "KPR", "APR", "DPR", "APS"]]
-        df_final.columns = ["ID da Conta", "Nick Atual", "Kills", "Assists", "Dano", "Partidas", "Kills/P", "Assists/P", "Dano/P", "Rating APS"]
+        df_final = df_grouped[["playerId", "playerName", "Nicks_Anteriores", "kills", "assists", "damageDealt", "gamesPlayed", "KPR", "APR", "DPR", "APS"]]
+        df_final.columns = ["ID da Conta", "Nick Atual", "Histórico de Nicks", "Kills", "Assists", "Dano", "Partidas", "Kills/P", "Assists/P", "Dano/P", "Rating APS"]
 
         st.info(
             "📍 **Como o APS (Apex Performance Score) é calculado?**\n\n"
