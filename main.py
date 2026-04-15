@@ -482,8 +482,8 @@ if st.session_state.dados_extraidos:
         df_grouped = df_grouped.sort_values(by="APS", ascending=False).reset_index(drop=True)
         df_grouped.index = df_grouped.index + 1 # Rank 1-based
         
-        df_final = df_grouped[["playerId", "playerName", "Nicks_Anteriores", "kills", "assists", "damageDealt", "gamesPlayed", "KPR", "APR", "DPR", "APS"]]
-        df_final.columns = ["ID da Conta", "Nick Atual", "Histórico de Nicks", "Kills", "Assists", "Dano", "Partidas", "Kills/P", "Assists/P", "Dano/P", "Rating APS"]
+        df_final = df_grouped[["playerId", "playerName", "kills", "assists", "damageDealt", "gamesPlayed", "KPR", "APR", "DPR", "APS"]]
+        df_final.columns = ["ID da Conta", "Nick Atual", "Kills", "Assists", "Dano", "Partidas", "Kills/P", "Assists/P", "Dano/P", "Rating APS"]
 
         st.info(
             "📍 **Como o APS (Apex Performance Score) é calculado?**\n\n"
