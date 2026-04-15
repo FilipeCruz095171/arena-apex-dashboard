@@ -507,12 +507,15 @@ if st.session_state.dados_extraidos:
         df_final.columns = ["ID da Conta", "Nick Atual", "Kills", "Assists", "Dano", "Partidas", "Kills/P", "Assists/P", "Dano/P", "Rating APS"]
 
         st.info(
-            "📍 **Como o APS (Apex Performance Score) é calculado?**\n\n"
-            "Esta métrica de nível profissional equilibra **poder de fogo** com a **consistência** ao longo das etapas. "
-            "Aquele jogador que esmagou o lobby em apenas 2 partidas e sumiu não ultrapassará alguém que se mantém entre os melhores há 18 partidas.\n\n"
-            "* **1️⃣ Fase 1 (Score Base):** `[ (Kills/P × 12) + (Assists/P × 8) + (Dano/P ÷ 100) ]` — Avalia sua capacidade perigosa padrão em uma partida.\n"
-            "* **2️⃣ Fase 2 (Multiplicador de Consistência):** Multiplicado por uma curva de peso baseada em quantas partidas ele jogou em relação ao máximo jogado por alguém nesta visualização. Média sustentada engole média de sorte.\n"
-            "* **🎯 Resultado Final:** `Score Base × Consistência`", 
+            "📍 **O Segredo do APS (Apex Performance Score)**\n\n"
+            "A métrica APS não se engana com sorte passageira. Ela trabalha em duas fases rigorosas para classificar o lobby:\n\n"
+            "* **1️⃣ Fase 1 (Poder Bruto):** Primeiro calcula-se quão letal o jogador foi na média das vezes que pisou no mapa. Cada "
+            "Kill vale 12pts, Assistência 8pts, e cada 100 de Dano vale 1pt.\n"
+            "* **2️⃣ Fase 2 (A Guilhotina da Consistência):** Se o jogador participou de quase todas as partidas do mês, o sistema "
+            "*preserva a maior parte* (85~100%) da nota de poder bruto dele. Mas, se ele jogou pouco (um \"turista\"), a matemática "
+            "(através de uma curva Logarítmica) corta a pontuação cruelmente, caindo para menos da metade!\n\n"
+            "**🎯 Resumo Prático:** Alguém que mata 6 jogadores em uma única partida e vai embora, não rouba o Top 1 de quem "
+            "suou a camisa matando 3 jogadores por dezenas de partidas. O multiplicador barra os sortudos. A Média sustentada sempre vencerá a sorte isolada!", 
             icon="🧠"
         )
 
