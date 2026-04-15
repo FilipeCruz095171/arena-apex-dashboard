@@ -430,6 +430,14 @@ if tournaments_data:
                 st.session_state.dados_extraidos = False
                 st.warning("Nenhum dado encontrado nas etapas selecionadas.")
 
+    st.sidebar.markdown(
+        "<div style='text-align: center; color: #666666; font-size: 13px; margin-top: 50px; border-top: 1px solid #4A171C; padding-top: 15px; font-family: Montserrat, sans-serif;'>"
+        "<b>Arena Apex Analytics v1.4.0</b><br>"
+        "Crafted By <span style='color: #E31B23; font-weight: 800;'>Derby_Vermelho</span>"
+        "</div>",
+        unsafe_allow_html=True
+    )
+
 # ==========================================
 # 6. EXIBIÇÃO DAS ABAS (FORA DO BOTÃO)
 # ==========================================
