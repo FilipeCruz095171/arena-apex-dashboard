@@ -506,6 +506,18 @@ if st.session_state.dados_extraidos:
         df_final = df_grouped[["playerId", "playerName", "kills", "assists", "damageDealt", "gamesPlayed", "KPR", "APR", "DPR", "APS"]]
         df_final.columns = ["ID da Conta", "Nick Atual", "Kills", "Assists", "Dano", "Partidas", "Kills/P", "Assists/P", "Dano/P", "Rating APS"]
 
+        # Resumo Estatístico do Lobby para balizamento dos administradores
+        media_aps = df_final["Rating APS"].mean()
+        max_aps = df_final["Rating APS"].max()
+        qtd_jogadores = len(df_final)
+
+        st.markdown("### 🧭 Termômetro do Recorte Analisado")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Rating Médio do Lobby (APS)", f"{media_aps:.1f}", help="Quem está acima disso tem potencial para times principais.")
+        c2.metric("Teto Máximo Registrado", f"{max_aps:.1f}")
+        c3.metric("Atletas Avaliados", qtd_jogadores)
+        st.markdown("---")
+
         st.info(
             "📍 **O Segredo do APS (Apex Performance Score)**\n\n"
             "A métrica APS não se engana com sorte passageira. Ela trabalha em duas fases rigorosas para classificar o lobby:\n\n"
