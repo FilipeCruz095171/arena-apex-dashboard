@@ -514,8 +514,8 @@ if st.session_state.dados_extraidos:
         st.markdown("### 🧭 Termômetro do Recorte Analisado")
         c1, c2, c3 = st.columns(3)
         c1.metric("Rating Médio do Lobby (APS)", f"{media_aps:.1f}", help="Quem está acima disso tem potencial para times principais.")
-        c2.metric("Teto Máximo Registrado", f"{max_aps:.1f}")
-        c3.metric("Atletas Avaliados", qtd_jogadores)
+        c2.metric("Rating Máximo Registrado", f"{max_aps:.1f}")
+        c3.metric("Jogadores Analisados", qtd_jogadores)
         st.markdown("---")
 
         st.info(
