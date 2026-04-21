@@ -5,6 +5,8 @@ import os
 import time
 from dotenv import load_dotenv
 from datetime import datetime
+import re
+import math
 import plotly.graph_objects as go
 import plotly.express as px
 
@@ -201,6 +203,10 @@ if "etapas_processadas" not in st.session_state:
     st.session_state.etapas_processadas = []
 if "dicionario_etapas" not in st.session_state:
     st.session_state.dicionario_etapas = {}
+if "aliases_times" not in st.session_state:
+    st.session_state.aliases_times = {}  # {"NOME_BRUTO": "NOME_CANONICO"}
+if "sugestoes_fuzzy" not in st.session_state:
+    st.session_state.sugestoes_fuzzy = []  # [(nome_a, nome_b, score)]
 
 # 2. Carregar o Token do .env
 load_dotenv()
@@ -382,6 +388,27 @@ if tournaments_data:
     selected_names = st.sidebar.multiselect("Etapas Selecionadas:", options=list(tournaments_dict.keys()), default=opcoes_padrao)
 
     # 5. O Botão Mágico (Agora salva na Memória)
+    def limpar_nome_time(nome_sujo):
+        """Camada 1 de normalização: Regex inteligente que distingue:
+        - Slot sem traço:  '5 MACHOS DELICIOSOS'  -> 'MACHOS DELICIOSOS'
+        - Slot com traço:  '03 - LOUD'             -> 'LOUD'
+        - Nome com número: '2PCD1CONTROLE'         -> '2PCD1CONTROLE' (mantido)
+        Regra chave: número + ESPAÇO + texto = slot. Número + letra direta = nome.
+        """
+        if not isinstance(nome_sujo, str) or not nome_sujo.strip():
+            return "TIME DESCONHECIDO"
+        nome_sujo = nome_sujo.strip()
+        # Caso 1: Número + separador explícito (-, _, [, ]) + texto  ->  descarta número
+        match = re.match(r"^\d+\s*[-_\[\]]+\s*(.+)$", nome_sujo)
+        if match:
+            return match.group(1).strip().upper()
+        # Caso 2: Número + ESPAÇO + texto (sem separador)  ->  descarta número (slot sem traço)
+        match = re.match(r"^(\d+)\s+(.+)$", nome_sujo)
+        if match:
+            return match.group(2).strip().upper()
+        # Caso 3: Número colado direto em letra (ex: '2PCD1CONTROLE')  ->  mantém o nome inteiro
+        return nome_sujo.strip().upper()
+
     if st.sidebar.button("Gerar Análise") and selected_names:
         with st.spinner("Conectando ao banco de dados..."):
             all_players = []
@@ -416,6 +443,8 @@ if tournaments_data:
                                     "assists": player.get("assists", 0),
                                     "damageDealt": player.get("damageDealt", 0),
                                     "gamesPlayed": player.get("gamesPlayed", 0),
+                                    "revivesGiven": player.get("revivesGiven", 0),
+                                    "teamName": limpar_nome_time(team.get("teamName", "")),
                                     "tournamentName": t_name_clean,
                                     "tournamentFullName": name,
                                     "tournamentDate": t_date_parsed,
@@ -430,6 +459,20 @@ if tournaments_data:
             if all_players:
                 st.session_state.df_players = pd.DataFrame(all_players)
                 st.session_state.dados_extraidos = True
+                # Resetar aliases e sugestões fuzzy ao carregar novos dados
+                st.session_state.aliases_times = {}
+                # Camada 2: Detecção Fuzzy automática
+                from difflib import SequenceMatcher
+                nomes_unicos = sorted(st.session_state.df_players["teamName"].unique().tolist())
+                sugestoes = []
+                for i, a in enumerate(nomes_unicos):
+                    for b in nomes_unicos[i+1:]:
+                        score = SequenceMatcher(None, a, b).ratio()
+                        if score >= 0.68:
+                            sugestoes.append((a, b, round(score * 100)))
+                # Ordena pelas mais similares primeiro
+                sugestoes.sort(key=lambda x: x[2], reverse=True)
+                st.session_state.sugestoes_fuzzy = sugestoes
             else:
                 st.session_state.dados_extraidos = False
                 st.warning("Nenhum dado encontrado nas etapas selecionadas.")
@@ -444,7 +487,7 @@ if tournaments_data:
     st.sidebar.markdown(
         f"<div style='text-align: center; color: #666666; font-size: 13px; margin-top: 50px; border-top: 1px solid #4A171C; padding-top: 25px; font-family: Montserrat, sans-serif;'>"
         f"{derby_html}"
-        "<b>Arena Apex Analytics v1.4.0</b><br>"
+        "<b>Arena Apex Analytics v1.5.0</b><br>"
         "Crafted By <span class='derby-text'>Derby_Vermelho</span>"
         "</div>",
         unsafe_allow_html=True
@@ -454,13 +497,24 @@ if tournaments_data:
 # 6. EXIBIÇÃO DAS ABAS (FORA DO BOTÃO)
 # ==========================================
 if st.session_state.dados_extraidos:
-    df = st.session_state.df_players
+    df_base = st.session_state.df_players.copy()
 
-    aba1, aba2, aba3, aba4 = st.tabs([
+    # ============================================================
+    # CAMADA 2+3: Aplicar aliases e exibir UI de normalização
+    # ============================================================
+    def aplicar_aliases(nome):
+        return st.session_state.aliases_times.get(nome, nome)
+
+    # Aplica aliases ao DataFrame de trabalho
+    df_base["teamNameCanonical"] = df_base["teamName"].apply(aplicar_aliases)
+    df = df_base
+
+    aba1, aba2, aba3, aba4, aba5 = st.tabs([
         "📊 Ranking Consolidado",
         "📈 Analítico por Jogador",
         "🏁 Placar da Etapa (Lobby)",
-        "🕵️‍♂️ CSI Arena"
+        "🕵️‍♂️ CSI Arena",
+        "🏆 Ranking Times"
     ])
 
     # --- CONTEÚDO DA ABA 1 ---
@@ -472,7 +526,7 @@ if st.session_state.dados_extraidos:
         df_sorted = df.sort_values(by="tournamentDate", ascending=True)
         df_grouped = df_sorted.groupby("playerId").agg({
             "playerName": "last", "kills": "sum", "assists": "sum",
-            "damageDealt": "sum", "gamesPlayed": "sum"
+            "damageDealt": "sum", "gamesPlayed": "sum", "revivesGiven": "sum"
         }).reset_index()
 
         df_grouped = df_grouped[df_grouped["gamesPlayed"] > 0]
@@ -486,10 +540,11 @@ if st.session_state.dados_extraidos:
         df_grouped["KPR"] = df_grouped["kills"] / df_grouped["gamesPlayed"]
         df_grouped["APR"] = df_grouped["assists"] / df_grouped["gamesPlayed"]
         df_grouped["DPR"] = df_grouped["damageDealt"] / df_grouped["gamesPlayed"]
+        df_grouped["RvPR"] = df_grouped["revivesGiven"] / df_grouped["gamesPlayed"]
         
         # 1. Poder Base: Valorando pesos realistas do Apex Legends
-        # Kill = 12pts, Assist = 8pts, 100 Dano = 1pt
-        df_grouped["Poder_Base"] = (df_grouped["KPR"] * 12) + (df_grouped["APR"] * 8) + (df_grouped["DPR"] / 100)
+        # Kill = 12pts, Assist = 8pts, 100 Dano = 1pt, Revive = 6pts
+        df_grouped["Poder_Base"] = (df_grouped["KPR"] * 12) + (df_grouped["APR"] * 8) + (df_grouped["DPR"] / 100) + (df_grouped["RvPR"] * 6)
         
         # 2. Fator de Consistência: Penaliza jogadores com poucas partidas
         df_grouped["Fator_Consistencia"] = df_grouped["gamesPlayed"].apply(
@@ -503,8 +558,8 @@ if st.session_state.dados_extraidos:
         df_grouped = df_grouped.sort_values(by="APS", ascending=False).reset_index(drop=True)
         df_grouped.index = df_grouped.index + 1 # Rank 1-based
         
-        df_final = df_grouped[["playerId", "playerName", "kills", "assists", "damageDealt", "gamesPlayed", "KPR", "APR", "DPR", "APS"]]
-        df_final.columns = ["ID da Conta", "Nick Atual", "Kills", "Assists", "Dano", "Partidas", "Kills/P", "Assists/P", "Dano/P", "Rating APS"]
+        df_final = df_grouped[["playerId", "playerName", "kills", "assists", "damageDealt", "revivesGiven", "gamesPlayed", "KPR", "APR", "DPR", "RvPR", "APS"]]
+        df_final.columns = ["ID da Conta", "Nick Atual", "Kills", "Assists", "Dano", "Revives", "Partidas", "Kills/P", "Assists/P", "Dano/P", "Revives/P", "Rating APS"]
 
         # Resumo Estatístico do Lobby para balizamento dos administradores
         media_aps = df_final["Rating APS"].mean()
@@ -522,7 +577,7 @@ if st.session_state.dados_extraidos:
             "📍 **O Segredo do APS (Apex Performance Score)**\n\n"
             "A métrica APS não se engana com sorte passageira. Ela trabalha em duas fases rigorosas para classificar o lobby:\n\n"
             "* **1️⃣ Fase 1 (Poder Bruto):** Primeiro calcula-se quão letal o jogador foi na média das vezes que pisou no mapa. Cada "
-            "Kill vale 12pts, Assistência 8pts, e cada 100 de Dano vale 1pt.\n"
+            "Kill vale 12pts, Assistência 8pts, cada 100 de Dano vale 1pt e cada Revive em aliado vale 6pts (Valorizando o Suporte!!).\n"
             "* **2️⃣ Fase 2 (A Guilhotina da Consistência):** Se o jogador participou de quase todas as partidas do recorte analisado, o sistema "
             "*preserva a maior parte* (85~100%) da nota de poder bruto dele. Mas, se ele jogou pouco (um \"turista\"), a matemática "
             "(através de uma curva Logarítmica) corta a pontuação cruelmente, caindo para menos da metade!\n\n"
@@ -532,7 +587,7 @@ if st.session_state.dados_extraidos:
         )
 
         tabela_estilizada = df_final.style.background_gradient(subset=["Rating APS"], cmap="YlOrRd").format({
-            "Kills/P": "{:.2f}", "Assists/P": "{:.2f}", "Dano/P": "{:.0f}", "Rating APS": "{:.1f}"
+            "Kills/P": "{:.2f}", "Assists/P": "{:.2f}", "Dano/P": "{:.0f}", "Revives/P": "{:.2f}", "Rating APS": "{:.1f}"
         })
         st.dataframe(tabela_estilizada, use_container_width=True)
 
@@ -613,25 +668,30 @@ if st.session_state.dados_extraidos:
             total_kills = int(df_jogador["kills"].sum())
             total_assists = int(df_jogador["assists"].sum())
             total_dano = int(df_jogador["damageDealt"].sum())
+            total_revives = int(df_jogador["revivesGiven"].sum()) if "revivesGiven" in df_jogador.columns else 0
             avg_kpr = round(total_kills / total_partidas, 2) if total_partidas > 0 else 0
             avg_apr = round(total_assists / total_partidas, 2) if total_partidas > 0 else 0
             avg_dpr = round(total_dano / total_partidas, 0) if total_partidas > 0 else 0
+            avg_rpr = round(total_revives / total_partidas, 2) if total_partidas > 0 else 0
 
             if comparar:
                 tp2 = int(df_jogador2["gamesPlayed"].sum())
                 tk2 = int(df_jogador2["kills"].sum())
                 ta2 = int(df_jogador2["assists"].sum())
                 td2 = int(df_jogador2["damageDealt"].sum())
+                tr2 = int(df_jogador2["revivesGiven"].sum()) if "revivesGiven" in df_jogador2.columns else 0
                 avg_kpr2 = round(tk2 / tp2, 2) if tp2 > 0 else 0
                 avg_apr2 = round(ta2 / tp2, 2) if tp2 > 0 else 0
                 avg_dpr2 = round(td2 / tp2, 0) if tp2 > 0 else 0
+                avg_rpr2 = round(tr2 / tp2, 2) if tp2 > 0 else 0
 
             st.markdown(f"#### 🏅 Resumo — {jogador_selecionado}")
-            col1, col2, col3, col4, col5, col6 = st.columns(6)
+            col1, col2, col3, col4, col_r, col5, col6 = st.columns(7)
             col1.metric("🎮 Partidas", total_partidas)
             col2.metric("💀 Kills", total_kills, f"{avg_kpr}/partida")
             col3.metric("🤝 Assists", total_assists, f"{avg_apr}/partida")
             col4.metric("💥 Dano Total", f"{total_dano:,.0f}", f"{avg_dpr:,.0f}/partida")
+            col_r.metric("🚑 Revives", total_revives, f"{avg_rpr}/partida")
             col5.metric("📊 Etapas", len(df_evolucao))
             if len(df_evolucao) >= 2:
                 delta_kills = int(df_evolucao["kills"].iloc[-1] - df_evolucao["kills"].iloc[-2])
@@ -641,11 +701,12 @@ if st.session_state.dados_extraidos:
 
             if comparar:
                 st.markdown(f"#### 🆚 Resumo — {jogador_comparar}")
-                c1, c2, c3, c4, c5, c6 = st.columns(6)
+                c1, c2, c3, c4, c_r, c5, c6 = st.columns(7)
                 c1.metric("🎮 Partidas", tp2)
                 c2.metric("💀 Kills", tk2, f"{avg_kpr2}/partida")
                 c3.metric("🤝 Assists", ta2, f"{avg_apr2}/partida")
                 c4.metric("💥 Dano Total", f"{td2:,.0f}", f"{avg_dpr2:,.0f}/partida")
+                c_r.metric("🚑 Revives", tr2, f"{avg_rpr2}/partida")
                 c5.metric("📊 Etapas", len(df_evolucao2))
                 if len(df_evolucao2) >= 2:
                     dk2 = int(df_evolucao2["kills"].iloc[-1] - df_evolucao2["kills"].iloc[-2])
@@ -1041,3 +1102,110 @@ if st.session_state.dados_extraidos:
             
             if len(nicks_usados) > 1:
                 st.warning("⚠️ **ALERTA CSI:** Esta conta já entrou nos lobbies disfarçada sob nomes falsos distintos. Verifique a tabela de disparidade para detectar indícios de adulteração de skill!")
+
+    # --- CONTEÚDO DA ABA 5 (RANKING DE TIMES) ---
+    with aba5:
+        st.subheader("🏆 Ranking Consolidado: Times")
+
+        # Camada 2: UI de sugestões fuzzy (exibida ao abrir esta aba)
+        sugestoes_pendentes = [
+            s for s in st.session_state.sugestoes_fuzzy
+            if s[0] not in st.session_state.aliases_times and s[1] not in st.session_state.aliases_times
+        ]
+        if sugestoes_pendentes:
+            with st.expander(f"⚠️ {len(sugestoes_pendentes)} possíve{'is' if len(sugestoes_pendentes)>1 else 'l'} duplicação{'es' if len(sugestoes_pendentes)>1 else ''} de times detectada{'s' if len(sugestoes_pendentes)>1 else ''} — confirme:", expanded=True):
+                st.caption("O sistema identificou nomes similares entre etapas. Marque os pares que são o mesmo time e clique em **Aplicar**.")
+                checkboxes = {}
+                for a, b, score in sugestoes_pendentes:
+                    checkboxes[(a, b)] = st.checkbox(
+                        f"**{a}**  →  **{b}**  *(similaridade {score}%)*",
+                        value=True, key=f"fz_{a}_{b}"
+                    )
+                if st.button("⚡ Aplicar Seleção", key="btn_aplicar_fuzzy"):
+                    for (a, b), marcado in checkboxes.items():
+                        if marcado:
+                            canonico = a if len(a) >= len(b) else b
+                            alias = b if len(a) >= len(b) else a
+                            st.session_state.aliases_times[alias] = canonico
+                    st.rerun()
+
+        # Camada 3: Editor Manual de Aliases
+        nomes_disponiveis = sorted(df["teamNameCanonical"].unique().tolist())
+        with st.expander("🔧 Gerenciar Times Manualmente (Fundir nomes diferentes)"):
+            st.caption("Use quando o Fuzzy não detectar automaticamente dois nomes que são o mesmo time.")
+            col_m1, col_m2, col_m3 = st.columns([2, 2, 1])
+            with col_m1:
+                alias_a = st.selectbox("Time (alias):", nomes_disponiveis, key="alias_sel_a")
+            with col_m2:
+                alias_b = st.selectbox("Time canônico (nome principal):", nomes_disponiveis, key="alias_sel_b")
+            with col_m3:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("⚡ Fundir", key="btn_fundir_manual"):
+                    if alias_a != alias_b:
+                        st.session_state.aliases_times[alias_a] = alias_b
+                        df["teamNameCanonical"] = df["teamName"].apply(aplicar_aliases)
+                        st.rerun()
+
+            # Lista de aliases ativos
+            if st.session_state.aliases_times:
+                st.markdown("**Aliases ativos:**")
+                aliases_para_remover = []
+                for raw, canonico in st.session_state.aliases_times.items():
+                    c1, c2 = st.columns([5, 1])
+                    c1.markdown(f"`{raw}` → `{canonico}`")
+                    if c2.button("✕", key=f"rm_{raw}"):
+                        aliases_para_remover.append(raw)
+                for r in aliases_para_remover:
+                    del st.session_state.aliases_times[r]
+                if aliases_para_remover:
+                    st.rerun()
+
+        st.markdown("---")
+
+        # Agrupamento usando o nome canonico
+        df_sorted2 = df.sort_values(by="tournamentDate", ascending=True)
+
+        # Partidas reais do time: máximo de um integrante por etapa, somado entre etapas
+        df_team_partidas_etapa = df_sorted2.groupby(["teamNameCanonical", "tournamentFullName"])["gamesPlayed"].max().reset_index()
+        df_team_total_games = df_team_partidas_etapa.groupby("teamNameCanonical")["gamesPlayed"].sum().reset_index()
+        df_team_total_games.columns = ["teamNameCanonical", "gamesPlayed"]
+
+        df_grouped2 = df_sorted2.groupby("teamNameCanonical").agg({
+            "kills": "sum", "assists": "sum",
+            "damageDealt": "sum", "revivesGiven": "sum"
+        }).reset_index()
+
+        df_grouped2 = pd.merge(df_grouped2, df_team_total_games, on="teamNameCanonical", how="left")
+        df_grouped2 = df_grouped2[df_grouped2["gamesPlayed"] > 0]
+        max_games2 = df_grouped2["gamesPlayed"].max() if not df_grouped2.empty else 1
+
+        df_grouped2["KPR"] = df_grouped2["kills"] / df_grouped2["gamesPlayed"]
+        df_grouped2["APR"] = df_grouped2["assists"] / df_grouped2["gamesPlayed"]
+        df_grouped2["DPR"] = df_grouped2["damageDealt"] / df_grouped2["gamesPlayed"]
+        df_grouped2["RvPR"] = df_grouped2["revivesGiven"] / df_grouped2["gamesPlayed"]
+        df_grouped2["Poder_Base"] = (df_grouped2["KPR"] * 12) + (df_grouped2["APR"] * 8) + (df_grouped2["DPR"] / 100) + (df_grouped2["RvPR"] * 6)
+        df_grouped2["Fator_Consistencia"] = df_grouped2["gamesPlayed"].apply(
+            lambda x: math.log2(x + 1) / math.log2(max_games2 + 1)
+        )
+        df_grouped2["APS"] = df_grouped2["Poder_Base"] * df_grouped2["Fator_Consistencia"]
+        df_grouped2 = df_grouped2.sort_values(by=["APS", "teamNameCanonical"], ascending=[False, True]).reset_index(drop=True)
+        df_grouped2.index = df_grouped2.index + 1
+
+        df_final2 = df_grouped2[["teamNameCanonical", "kills", "assists", "damageDealt", "revivesGiven", "gamesPlayed", "KPR", "APR", "DPR", "RvPR", "APS"]]
+        df_final2.columns = ["Time", "Kills", "Assists", "Dano Total", "Revives", "Partidas", "Kills/P", "Assists/P", "Dano/P", "Revives/P", "Rating APS Team"]
+
+        # Termômetro do Recorte (Times)
+        media_aps_t = df_final2["Rating APS Team"].mean()
+        max_aps_t   = df_final2["Rating APS Team"].max()
+        qtd_times   = len(df_final2)
+        st.markdown("### 🦭 Termômetro do Recorte Analisado (por Time)")
+        ct1, ct2, ct3 = st.columns(3)
+        ct1.metric("Rating Médio dos Times (APS)",  f"{media_aps_t:.0f}", help="Times acima disso são referência do lobby.")
+        ct2.metric("Rating Máximo Registrado",       f"{max_aps_t:.0f}")
+        ct3.metric("Times Analisados",                qtd_times)
+        st.markdown("---")
+
+        tabela_estilizada2 = df_final2.style.background_gradient(subset=["Rating APS Team"], cmap="Purples").format({
+            "Kills/P": "{:.1f}", "Assists/P": "{:.1f}", "Dano/P": "{:.0f}", "Revives/P": "{:.2f}", "Rating APS Team": "{:.0f}"
+        })
+        st.dataframe(tabela_estilizada2, use_container_width=True)

@@ -1,0 +1,377 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "DGS Tournament API (Saturne)",
+    "description": "API for accessing DGS tournaments data",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/tournament/saturne/api",
+      "description": "Public API"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "paths": {
+    "/tournaments": {
+      "get": {
+        "summary": "Get tournaments list",
+        "description": "Retrieve a list of tournaments with their games",
+        "tags": [
+          "Tournaments"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "allGames",
+            "in": "query",
+            "description": "Get all tournaments (1) or only user tournaments (0)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "integer",
+                        "example": 30
+                      },
+                      "name": {
+                        "type": "string",
+                        "example": "DGS Closed beta"
+                      },
+                      "privacyMode": {
+                        "type": "string",
+                        "example": "TOURNAMENT"
+                      },
+                      "games": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "example": "6beac5437e98c31f9b8a423a3433a6c2"
+                            },
+                            "title": {
+                              "type": "string",
+                              "example": "Final closed beta"
+                            },
+                            "map": {
+                              "type": "string",
+                              "example": "Olympus"
+                            },
+                            "uploadedAtUnixTimestamp": {
+                              "type": "integer",
+                              "example": 1670271895
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No tournaments found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scores": {
+      "get": {
+        "summary": "Get tournament scores",
+        "description": "Retrieve detailed scores, statistics, and player data for a specific tournament",
+        "tags": [
+          "Scores"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tournamentId",
+            "in": "query",
+            "description": "Tournament ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ALSData": {
+                      "type": "object",
+                      "properties": {
+                        "tournamentId": {
+                          "type": "string",
+                          "example": "5117"
+                        },
+                        "name": {
+                          "type": "string",
+                          "example": "Apex Legends Solos Inferno"
+                        },
+                        "lastDataUpdate": {
+                          "type": "integer",
+                          "example": 1759529070
+                        }
+                      }
+                    },
+                    "gamesData": {
+                      "type": "object",
+                      "properties": {
+                        "totalPlayed": {
+                          "type": "integer",
+                          "example": 7
+                        }
+                      }
+                    },
+                    "gamesPlayed": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "example": "5117-72328071:37315:1718659629"
+                      }
+                    },
+                    "gamesCancelled": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "teamData": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "teamName": {
+                            "type": "string",
+                            "example": "Team 11"
+                          },
+                          "points": {
+                            "type": "integer",
+                            "example": 32
+                          },
+                          "hits": {
+                            "type": "integer",
+                            "example": 536
+                          },
+                          "ringDamage": {
+                            "type": "integer",
+                            "example": 0
+                          },
+                          "survivalTime": {
+                            "type": "integer",
+                            "example": 4479
+                          },
+                          "respawnsGiven": {
+                            "type": "integer",
+                            "example": 0
+                          },
+                          "shots": {
+                            "type": "integer",
+                            "example": 2090
+                          },
+                          "headshots": {
+                            "type": "integer",
+                            "example": 32
+                          },
+                          "ranking": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer"
+                            },
+                            "example": [
+                              46,
+                              11,
+                              6,
+                              1,
+                              30,
+                              13
+                            ]
+                          },
+                          "knockdowns": {
+                            "type": "integer",
+                            "example": 32
+                          },
+                          "revivesGiven": {
+                            "type": "integer",
+                            "example": 0
+                          },
+                          "assists": {
+                            "type": "integer",
+                            "example": 0
+                          },
+                          "damageDealt": {
+                            "type": "integer",
+                            "example": 9836
+                          },
+                          "kills": {
+                            "type": "integer",
+                            "example": 32
+                          },
+                          "playersData": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "playerName": {
+                                  "type": "string",
+                                  "example": "FURIA_Keon"
+                                },
+                                "playerId": {
+                                  "type": "string",
+                                  "example": "8be373e9a1162c13711b1178bd337d36"
+                                },
+                                "kills": {
+                                  "type": "integer",
+                                  "example": 32
+                                },
+                                "deaths": {
+                                  "type": "integer",
+                                  "nullable": true,
+                                  "example": null
+                                },
+                                "damageDealt": {
+                                  "type": "integer",
+                                  "example": 9836
+                                },
+                                "damageTaken": {
+                                  "type": "integer",
+                                  "nullable": true,
+                                  "example": null
+                                },
+                                "ringDamage": {
+                                  "type": "integer",
+                                  "example": 0
+                                },
+                                "assists": {
+                                  "type": "integer",
+                                  "example": 0
+                                },
+                                "revivesGiven": {
+                                  "type": "integer",
+                                  "example": 0
+                                },
+                                "gamesPlayed": {
+                                  "type": "integer",
+                                  "example": 6
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Missing tournamentId",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No games found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "token",
+        "description": "Use your API token for authentication"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "Invalid Authorization header value."
+          }
+        }
+      }
+    }
+  }
+}
